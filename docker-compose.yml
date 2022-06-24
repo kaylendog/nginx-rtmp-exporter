@@ -1,0 +1,20 @@
+services:
+  nginx:
+    image: skyefuzz/nginx-rtmp
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+  nginx_exporter:
+    build: .
+    links:
+      - nginx
+    command: ./nginx-rtmp-exporter -p 9114 --host 0.0.0.0 --scrape-url http://nginx
+  
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - 9090:9090
+    links:
+      - nginx_exporter
