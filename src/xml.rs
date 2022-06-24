@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use reqwest::{IntoUrl, Url};
+use reqwest::Url;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -103,6 +103,6 @@ mod tests {
     fn test_deserialize_nginx_stats() {
         let xml = include_str!("../test/stat_xml.xml");
         let mut de = quick_xml::de::Deserializer::from_str(xml);
-        let stats: RtmpStats = serde_path_to_error::deserialize(&mut de).unwrap();
+        let _stats: RtmpStats = serde_path_to_error::deserialize(&mut de).unwrap();
     }
 }

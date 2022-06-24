@@ -5,7 +5,7 @@ mod xml;
 use std::{error::Error, net::SocketAddr, sync::Arc};
 
 use clap::Parser;
-use prometheus::{core::Metric, labels, proto::LabelPair, Encoder, TextEncoder};
+use prometheus::{Encoder, TextEncoder};
 use reqwest::Url;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};

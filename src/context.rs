@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use prometheus::{labels, opts, IntCounter, IntCounterVec, IntGauge, IntGaugeVec};
 use reqwest::Url;
 
