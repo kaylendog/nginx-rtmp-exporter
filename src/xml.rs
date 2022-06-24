@@ -55,12 +55,10 @@ pub struct RtmpStream {
 #[derive(Debug, Deserialize)]
 pub struct RtmpStreamClient {
     pub id: u32,
-    pub address: String,
-    pub port: u16,
+    pub address: Option<String>,
     pub time: u64,
     pub flashver: String,
-    pub bytes_in: u64,
-    pub bytes_out: u64,
+	pub pageurl: Option<String>,
     pub dropped: u64,
     pub avsync: i64,
     pub timestamp: u64,
