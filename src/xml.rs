@@ -32,7 +32,7 @@ pub struct RtmpApplication {
 
 #[derive(Debug, Deserialize)]
 pub struct RtmpApplicationLiveBlock {
-    #[serde(rename = "stream")]
+    #[serde(rename = "stream", default = "Vec::new")]
     pub streams: Vec<RtmpStream>,
 }
 

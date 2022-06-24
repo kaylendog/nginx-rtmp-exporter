@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3", features = ["derive"] }
+dotenv = "0.15"
 prometheus = "0.13"
 quick-xml = { version = "0.23", features = ["serialize"] }
 reqwest = "0.11"

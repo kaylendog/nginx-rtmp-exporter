@@ -19,6 +19,16 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         ])
         .unwrap()
         .set(1);
+    // set active streams
+    ctx.nginx_rtmp_active_streams.set(
+        stats
+            .server
+            .applications
+            .iter()
+            .map(|app| app.live.streams.len())
+            .reduce(|total, count| total + count)
+            .unwrap_or(0) as i64,
+    );
     // incoming bytes
     ctx.nginx_rtmp_incoming_bytes_total.reset();
     ctx.nginx_rtmp_incoming_bytes_total.inc_by(stats.bytes_in);

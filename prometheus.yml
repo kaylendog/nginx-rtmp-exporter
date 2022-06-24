@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'nginx-rtmp'
+    static_configs:
+      - targets: ['nginx_exporter:9114']

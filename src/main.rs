@@ -2,9 +2,15 @@ mod context;
 mod metrics;
 mod xml;
 
-use std::{error::Error, net::SocketAddr, sync::Arc};
+use std::{
+    env,
+    error::Error,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
 use clap::Parser;
+use dotenv::dotenv;
 use prometheus::{Encoder, TextEncoder};
 use reqwest::Url;
 use tokio::sync::Mutex;
@@ -23,6 +29,12 @@ struct Args {
     /// The RTMP statistics endpoint of NGINX.
     #[clap(long)]
     pub scrape_url: Url,
+    /// The host to listen on.
+    #[clap(default_value = "127.0.0.1", long)]
+    pub host: IpAddr,
+    /// The port to listen on.
+    #[clap(default_value = "9114", short, long)]
+    pub port: u16,
 }
 
 fn encode_metrics() -> Result<(TextEncoder, String), Box<dyn Error>> {
@@ -48,6 +60,10 @@ async fn main() {
         rustc_version = env!("VERGEN_RUSTC_SEMVER"),
         builder_host = env!("VERGEN_RUSTC_HOST_TRIPLE")
     );
+    // load dotenv if in dev env
+    if cfg!(debug_assertions) {
+        dotenv().ok();
+    }
     // create threadsafe context
     let ctx = Context::new(args.scrape_url);
     let ctx = Arc::new(Mutex::new(ctx));
@@ -55,6 +71,7 @@ async fn main() {
     let ctx = warp::any().map(move || ctx.clone());
     // create index filter
     let index = warp::get()
+        .and(warp::path!("metrics"))
         .and(warp::path::end())
         .and(ctx)
         .then(|ctx: Arc<Mutex<Context>>| async move {
@@ -78,7 +95,7 @@ async fn main() {
         })
         .with(warp::trace::request());
     // get address and listen
-    let addr: SocketAddr = "127.0.0.1:3000".parse().unwrap();
-    info!("Listening on {}", addr);
+    let addr = SocketAddr::from((args.host, args.port));
+    info!("Listening for requests on {}", addr);
     warp::serve(index).try_bind(addr).await;
 }
