@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rtmp>
+	<script/>
+	<nginx_version>1.21.6</nginx_version>
+	<nginx_rtmp_version>1.2.x-dev</nginx_rtmp_version>
+	<compiler>gcc 11.2.0 (Ubuntu 11.2.0-19ubuntu1) </compiler>
+	<pid>1234</pid>
+	<uptime>1234</uptime>
+	<naccepted>1</naccepted>
+	<bw_in>123456</bw_in>
+	<bytes_in>123456</bytes_in>
+	<bw_out>123456</bw_out>
+	<bytes_out>123456</bytes_out>
+	<server>
+		<application>
+			<name>test</name>
+			<live>
+				<stream>
+					<name>my cool stream</name>
+					<time>1234</time>
+					<bw_in>123456</bw_in>
+					<bytes_in>123456</bytes_in>
+					<bw_out>123456</bw_out>
+					<bytes_out>123456</bytes_out>
+					<bw_audio>0</bw_audio>
+					<bw_video>123456</bw_video>
+					<bw_data>0</bw_data>
+					<client>
+						<id>0</id>
+						<address>example</address>
+						<port>0</port>
+						<time>0</time>
+						<flashver>ngx-local-relay</flashver>
+						<bytes_in>123456</bytes_in>
+						<bytes_out>123456</bytes_out>
+						<dropped>0</dropped>
+						<avsync>0</avsync>
+						<timestamp>0</timestamp>
+						<active/>
+						<publishing/>
+					</client>
+					<meta>
+						<video>
+							<width>1920</width>
+							<height>1080</height>
+							<frame_rate>25.000</frame_rate>
+							<data_rate>4394</data_rate>
+							<codec>H264</codec>
+							<profile>High</profile>
+							<compat>0</compat>
+							<level>4.2</level>
+						</video>
+						<audio/>
+					</meta>
+				</stream>
+				<nclients>1</nclients>
+			</live>
+		</application>
+	</server>
+</rtmp>
