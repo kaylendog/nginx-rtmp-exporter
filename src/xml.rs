@@ -40,13 +40,12 @@ pub struct RtmpApplicationLiveBlock {
 pub struct RtmpStream {
     pub name: String,
     pub time: u64,
-    pub bw_in: u64,
     pub bytes_in: u64,
-    pub bw_out: u64,
     pub bytes_out: u64,
+    pub bw_in: u64,
+    pub bw_out: u64,
     pub bw_audio: u64,
     pub bw_video: u64,
-    pub bw_data: u64,
     #[serde(rename = "client")]
     pub clients: Vec<RtmpStreamClient>,
     pub meta: RtmpStreamMeta,
@@ -69,7 +68,7 @@ pub struct RtmpStreamClient {
 #[derive(Debug, Deserialize)]
 pub struct RtmpStreamMeta {
     pub video: RtmpStreamVideoMeta,
-    pub audio: Option<RtmpStreamAudioMeta>,
+    pub audio: RtmpStreamAudioMetaWrapper,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,7 +76,6 @@ pub struct RtmpStreamVideoMeta {
     pub width: u16,
     pub height: u64,
     pub frame_rate: f32,
-    pub data_rate: u16,
     pub codec: String,
     pub profile: String,
     pub compat: u16,
@@ -85,17 +83,29 @@ pub struct RtmpStreamVideoMeta {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RtmpStreamAudioMeta {}
+pub struct RtmpStreamAudioMetaWrapper {
+	pub inner: Option<RtmpStreamAudioMeta>
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RtmpStreamAudioMeta {
+	pub codec: String,
+	pub profile: String,
+	pub channels: u8,
+	pub sample_rate: u32
+}
 
 /// Fetch NGINX RTMP stats from the given URL.
 pub async fn fetch_nginx_stats(url: &Url) -> Result<RtmpStats, Box<dyn Error>> {
     let res = reqwest::get(url.clone()).await?;
-    quick_xml::de::from_str::<RtmpStats>(&res.text().await?).map_err(|err| err.into())
+	let text = &res.text().await?;
+	let mut de = quick_xml::de::Deserializer::from_str(text);
+    serde_path_to_error::deserialize(&mut de).map_err(|err| err.into())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::RtmpStats;
+    use super::{RtmpStats, RtmpStreamAudioMeta, RtmpStreamAudioMetaWrapper};
 
     #[test]
     fn test_deserialize_nginx_stats() {
@@ -103,4 +113,18 @@ mod tests {
         let mut de = quick_xml::de::Deserializer::from_str(xml);
         let _stats: RtmpStats = serde_path_to_error::deserialize(&mut de).unwrap();
     }
+
+	#[test]
+	fn test_deserialize_audio() {
+		let audio = r#"<audio>
+	<codec>AAC</codec>
+	<profile>LC</profile>
+	<channels>2</channels>
+	<sample_rate>48000</sample_rate>
+	<data_rate>312</data_rate>
+</audio>"#;
+
+		let audio_meta: RtmpStreamAudioMetaWrapper = quick_xml::de::from_str(audio).unwrap();
+	}
 }
+

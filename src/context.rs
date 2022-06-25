@@ -17,7 +17,6 @@ pub struct Context {
     pub nginx_rtmp_stream_outgoing_bandwidth: IntGaugeVec,
     pub nginx_rtmp_stream_bandwidth_video: IntGaugeVec,
     pub nginx_rtmp_stream_bandwidth_audio: IntGaugeVec,
-    pub nginx_rtmp_stream_bandwidth_data: IntGaugeVec,
     pub nginx_rtmp_stream_publisher_avsync: IntGaugeVec,
 }
 
@@ -56,12 +55,12 @@ impl Context {
             ))
             .unwrap(),
             nginx_rtmp_incoming_bytes_total: prometheus::register_int_counter!(opts!(
-                "rtmp_incoming_bytes_total",
+                "nginx_rtmp_incoming_bytes_total",
                 "A metric tracking the total number of incoming bytes processed."
             ))
             .unwrap(),
             nginx_rtmp_outgoing_bytes_total: prometheus::register_int_counter!(opts!(
-                "rtmp_outgoing_bytes_total",
+                "nginx_rtmp_outgoing_bytes_total",
                 "A metric tracking the total number of outgoing bytes processed."
             ))
             .unwrap(),
@@ -119,13 +118,6 @@ impl Context {
 				opts!(
 					"nginx_rtmp_stream_bandwidth_audio",
 					"A metric tracking the audio bandwidth of a given stream, labelled by stream and application."
-				),
-                &["application", "stream"]
-			).unwrap(),
-			nginx_rtmp_stream_bandwidth_data: prometheus::register_int_gauge_vec!(
-				opts!(
-					"nginx_rtmp_stream_bandwidth_data",
-					"A metric tracking the data bandwidth of a given stream, labelled by stream and application."
 				),
                 &["application", "stream"]
 			).unwrap(),
