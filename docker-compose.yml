@@ -5,13 +5,12 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf
     ports:
       - 1935:1935
-      - 3000:80
 
   nginx_exporter:
     build: .
     links:
       - nginx
-    command: ./nginx-rtmp-exporter -p 9114 --host 0.0.0.0 --scrape-url http://nginx
+    command: ./nginx-rtmp-exporter -p 9114 --host 0.0.0.0 --scrape-url http://example.com/my_stats
   
   prometheus:
     image: prom/prometheus
@@ -21,3 +20,16 @@ services:
       - 9090:9090
     links:
       - nginx_exporter
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    links:
+      - prometheus
