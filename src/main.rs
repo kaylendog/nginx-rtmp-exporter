@@ -1,4 +1,5 @@
 mod context;
+mod meta;
 mod metrics;
 mod xml;
 
@@ -6,7 +7,7 @@ use std::{
     env,
     error::Error,
     net::{IpAddr, SocketAddr},
-    sync::Arc,
+    sync::Arc, path::PathBuf,
 };
 
 use clap::Parser;
@@ -21,7 +22,7 @@ use warp::{
     Filter, Reply,
 };
 
-use crate::{context::Context, metrics::collect_metrics};
+use crate::{context::Context, metrics::collect_metrics, meta::{MetaContainer, MetaProvider}};
 
 /// Prometheus data exporter for NGINX servers running the nginx-rtmp-module.
 #[derive(Parser)]
@@ -35,6 +36,9 @@ struct Args {
     /// The port to listen on.
     #[clap(default_value = "9114", short, long)]
     pub port: u16,
+	/// An optional path to a metadata file.
+	#[clap(long)]
+	pub metadata: Option<PathBuf>
 }
 
 fn encode_metrics() -> Result<(TextEncoder, String), Box<dyn Error>> {
@@ -64,8 +68,13 @@ async fn main() {
     if cfg!(debug_assertions) {
         dotenv().ok();
     }
+	// load metadata
+	let provider = match args.metadata {
+		Some(path) => MetaProvider::from_toml(path).expect("Failed to load metadata from file"),
+		None => MetaProvider::default(),
+	};
     // create threadsafe context
-    let ctx = Context::new(args.scrape_url);
+    let ctx = Context::new(args.scrape_url, provider);
     let ctx = Arc::new(Mutex::new(ctx));
     // create context filter
     let ctx = warp::any().map(move || ctx.clone());
