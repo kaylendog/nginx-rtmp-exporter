@@ -8,7 +8,7 @@ pub struct RtmpStats {
     pub nginx_version: String,
     pub nginx_rtmp_version: String,
     pub compiler: String,
-    pub pid: u16,
+    pub pid: u32,
     pub uptime: u32,
     pub naccepted: u32,
     pub bw_in: u64,
