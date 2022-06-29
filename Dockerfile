@@ -1,7 +1,7 @@
-FROM rust:alpine as builder
+FROM rust as builder
 WORKDIR /build
 # install os dependencies
-RUN apk add --no-cache musl-dev openssl-dev build-base
+RUN apt install libssl-dev build-essential
 # copy dependency information
 COPY Cargo.toml Cargo.lock  ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo fetch && rm -rf src
@@ -10,16 +10,18 @@ COPY build.rs ./
 # copy git information
 COPY .git .git
 COPY src src
-RUN CFLAGS=-mno-outline-atomics cargo build --release
+RUN cargo build --release
 
-FROM rust:alpine as worker
+FROM rust as worker
 WORKDIR /app
 # install os dependencies
-RUN apk add --no-cache tini git libc6-compat
+RUN apt install git
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
 # copy executable
 COPY --from=builder /build/target/release/nginx-rtmp-exporter ./
 # set tini entrypoint and run
-ENTRYPOINT [ "/sbin/tini", "--" ]
+ENTRYPOINT [ "/tini", "--" ]
 CMD [ "/app/nginx-rtmp-exporter" ]
 
 EXPOSE 9114
