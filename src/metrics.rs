@@ -88,6 +88,11 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
                     None => (),
                 };
             }
+            // connected clients
+            // total clients - 1, 1 publisher
+            ctx.nginx_rtmp_stream_total_clients
+                .with_label_values(lbs)
+                .set((stream.clients.len() - 1) as i64);
         })
     });
 
