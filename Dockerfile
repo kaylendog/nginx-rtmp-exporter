@@ -2,7 +2,7 @@ FROM rust as builder
 WORKDIR /build
 # install os dependencies
 RUN apt update
-RUN apt install libssl-dev build-essential
+RUN apt install -y libssl-dev build-essential
 # copy dependency information
 COPY Cargo.toml Cargo.lock  ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo fetch && rm -rf src
@@ -18,7 +18,7 @@ WORKDIR /app
 # install os dependencies
 ENV TINI_VERSION v0.19.0
 RUN apt update
-RUN apt install git
+RUN apt install -y git
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 # copy executable
