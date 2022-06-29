@@ -18,6 +18,7 @@ pub struct Context {
     pub nginx_rtmp_stream_bandwidth_video: IntGaugeVec,
     pub nginx_rtmp_stream_bandwidth_audio: IntGaugeVec,
     pub nginx_rtmp_stream_publisher_avsync: IntGaugeVec,
+    pub nginx_rtmp_stream_total_clients: IntGaugeVec,
 }
 
 impl Context {
@@ -126,7 +127,14 @@ impl Context {
 					"nginx_rtmp_stream_publisher_avsync",
 					"A metric tracking the A-V sync value of a given stream, labelled by stream and application."),
 				&["application", "stream"]
-			).unwrap()
+			).unwrap(),
+			nginx_rtmp_stream_total_clients: prometheus::register_int_gauge_vec!(
+				opts!(
+					"nginx_rtmp_stream_total_clients",
+					"A metric tracking the number of clients connected to a given stream, labelled by stream and application."
+				),
+				&["application", "stream"]	
+			).unwrap(),
         }
     }
 }

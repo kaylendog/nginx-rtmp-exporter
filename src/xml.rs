@@ -57,7 +57,7 @@ pub struct RtmpStreamClient {
     pub address: Option<String>,
     pub time: u64,
     pub flashver: String,
-	pub pageurl: Option<String>,
+    pub pageurl: Option<String>,
     pub dropped: u64,
     pub avsync: i64,
     pub timestamp: u64,
@@ -84,28 +84,28 @@ pub struct RtmpStreamVideoMeta {
 
 #[derive(Debug, Deserialize)]
 pub struct RtmpStreamAudioMetaWrapper {
-	pub inner: Option<RtmpStreamAudioMeta>
+    pub inner: Option<RtmpStreamAudioMeta>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RtmpStreamAudioMeta {
-	pub codec: String,
-	pub profile: String,
-	pub channels: u8,
-	pub sample_rate: u32
+    pub codec: String,
+    pub profile: String,
+    pub channels: u8,
+    pub sample_rate: u32,
 }
 
 /// Fetch NGINX RTMP stats from the given URL.
 pub async fn fetch_nginx_stats(url: &Url) -> Result<RtmpStats, Box<dyn Error>> {
     let res = reqwest::get(url.clone()).await?;
-	let text = &res.text().await?;
-	let mut de = quick_xml::de::Deserializer::from_str(text);
+    let text = &res.text().await?;
+    let mut de = quick_xml::de::Deserializer::from_str(text);
     serde_path_to_error::deserialize(&mut de).map_err(|err| err.into())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{RtmpStats, RtmpStreamAudioMeta, RtmpStreamAudioMetaWrapper};
+    use super::{RtmpStats, RtmpStreamAudioMetaWrapper};
 
     #[test]
     fn test_deserialize_nginx_stats() {
@@ -114,9 +114,9 @@ mod tests {
         let _stats: RtmpStats = serde_path_to_error::deserialize(&mut de).unwrap();
     }
 
-	#[test]
-	fn test_deserialize_audio() {
-		let audio = r#"<audio>
+    #[test]
+    fn test_deserialize_audio() {
+        let audio = r#"<audio>
 	<codec>AAC</codec>
 	<profile>LC</profile>
 	<channels>2</channels>
@@ -124,7 +124,6 @@ mod tests {
 	<data_rate>312</data_rate>
 </audio>"#;
 
-		let audio_meta: RtmpStreamAudioMetaWrapper = quick_xml::de::from_str(audio).unwrap();
-	}
+        let _: RtmpStreamAudioMetaWrapper = quick_xml::de::from_str(audio).unwrap();
+    }
 }
-
