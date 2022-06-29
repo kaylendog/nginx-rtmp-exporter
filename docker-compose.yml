@@ -10,8 +10,7 @@ services:
     build: .
     links:
       - nginx
-    command: ./nginx-rtmp-exporter -p 9114 --host 0.0.0.0 --scrape-url http://rtmp-nyc.8by8.io/stat_xml
-  
+    command: ./nginx-rtmp-exporter -p 9114 --host 0.0.0.0 --scrape-url http://example.com/my_rtmp_stats
   prometheus:
     image: prom/prometheus
     volumes:
