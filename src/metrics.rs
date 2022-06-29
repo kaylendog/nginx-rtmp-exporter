@@ -43,7 +43,14 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     stats.server.applications.iter().for_each(|application| {
         application.live.streams.iter().for_each(|stream| {
             // label values
-            let lbs: &[&str] = &[&application.name, &stream.name];
+            let mut lbs = vec![application.name.as_str(), stream.name.as_str()];
+            // collect and append metadata values
+            let meta = ctx.meta_provider.get_values_for(&stream.name);
+            let mut meta: Vec<&str> = meta.iter().map(|s| &**s).collect();
+            meta.append(&mut lbs);
+            // reference labels
+            let lbs = &lbs;
+
             // incoming bytes
             let incoming_bytes = ctx
                 .nginx_rtmp_stream_incoming_bytes_total

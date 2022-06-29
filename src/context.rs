@@ -4,16 +4,16 @@ use reqwest::Url;
 use crate::meta::MetaProvider;
 
 macro_rules! append {
-	( $lhs:expr, $rhs:expr ) => {
-		&{
-			let mut lhs: Vec<&str> = $lhs.to_vec();
-			let mut rhs: Vec<&str> = $rhs.iter().map(|s| &**s).collect();
-			let mut output: Vec<&str> = Vec::new();
-			output.append(&mut lhs);
-			output.append(&mut rhs);
-			output
-		}
-	};
+    ( $lhs:expr, $rhs:expr ) => {
+        &{
+            let mut lhs: Vec<&str> = $lhs.to_vec();
+            let mut rhs: Vec<&str> = $rhs.iter().map(|s| &**s).collect();
+            let mut output: Vec<&str> = Vec::new();
+            output.append(&mut lhs);
+            output.append(&mut rhs);
+            output
+        }
+    };
 }
 
 #[derive(Debug)]
@@ -34,7 +34,7 @@ pub struct Context {
     pub nginx_rtmp_stream_bandwidth_audio: IntGaugeVec,
     pub nginx_rtmp_stream_publisher_avsync: IntGaugeVec,
     pub nginx_rtmp_stream_total_clients: IntGaugeVec,
-	pub meta_provider: MetaProvider
+    pub meta_provider: MetaProvider,
 }
 
 impl Context {
@@ -50,11 +50,8 @@ impl Context {
 		))
         .unwrap()
         .set(1.0);
-		// create stream labels
-		let labels = append!(
-			&["stream", "application"],
-			meta_provider.get_fields()
-		);
+        // create stream labels
+        let labels = append!(&["stream", "application"], meta_provider.get_fields());
         // create context
         Context {
             rtmp_stats_endpoint: endpoint,
@@ -154,7 +151,7 @@ impl Context {
 					"nginx_rtmp_stream_total_clients",
 					"A metric tracking the number of clients connected to a given stream, labelled by stream and application."
 				),
-				labels	
+				labels
 			).unwrap(),
 			meta_provider
         }
