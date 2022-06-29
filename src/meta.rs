@@ -100,10 +100,32 @@ impl MetaProvider {
         Ok(())
     }
 
-	/// Get a reference to the metadata.
-	pub fn get_fields(&self) -> &Vec<String> {
-		&self.fields
-	}
+    /// Get a reference to the metadata.
+    pub fn get_fields(&self) -> &Vec<String> {
+        &self.fields
+    }
+    /// Get the field-sorted values of a stream's meta.
+    pub fn get_values_for<S: AsRef<str>>(&self, stream: S) -> Vec<String> {
+        let values: Option<Vec<String>> = self.metadata.get(stream.as_ref()).map(|m| {
+            let mut entries: Vec<_> = m.iter().collect();
+            entries.sort_by(|a, b| {
+                self.fields
+                    .iter()
+                    .position(|f| f == a.0)
+                    .expect("Mismatch between defined fields and provided meta")
+                    .partial_cmp(
+                        &self
+                            .fields
+                            .iter()
+                            .position(|f| f == b.0)
+                            .expect("Mismatch between defined fields and provided meta"),
+                    )
+                    .expect("Failed to compare metadata")
+            });
+            entries.into_iter().map(|(_, v)| v.clone()).collect()
+        });
+        values.unwrap_or(vec![])
+    }
 }
 
 #[cfg(test)]

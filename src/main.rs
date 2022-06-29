@@ -7,7 +7,8 @@ use std::{
     env,
     error::Error,
     net::{IpAddr, SocketAddr},
-    sync::Arc, path::PathBuf,
+    path::PathBuf,
+    sync::Arc,
 };
 
 use clap::Parser;
@@ -22,7 +23,11 @@ use warp::{
     Filter, Reply,
 };
 
-use crate::{context::Context, metrics::collect_metrics, meta::{MetaContainer, MetaProvider}};
+use crate::{
+    context::Context,
+    meta::{MetaContainer, MetaProvider},
+    metrics::collect_metrics,
+};
 
 /// Prometheus data exporter for NGINX servers running the nginx-rtmp-module.
 #[derive(Parser)]
@@ -36,9 +41,9 @@ struct Args {
     /// The port to listen on.
     #[clap(default_value = "9114", short, long)]
     pub port: u16,
-	/// An optional path to a metadata file.
-	#[clap(long)]
-	pub metadata: Option<PathBuf>
+    /// An optional path to a metadata file.
+    #[clap(long)]
+    pub metadata: Option<PathBuf>,
 }
 
 fn encode_metrics() -> Result<(TextEncoder, String), Box<dyn Error>> {
@@ -68,11 +73,11 @@ async fn main() {
     if cfg!(debug_assertions) {
         dotenv().ok();
     }
-	// load metadata
-	let provider = match args.metadata {
-		Some(path) => MetaProvider::from_toml(path).expect("Failed to load metadata from file"),
-		None => MetaProvider::default(),
-	};
+    // load metadata
+    let provider = match args.metadata {
+        Some(path) => MetaProvider::from_toml(path).expect("Failed to load metadata from file"),
+        None => MetaProvider::default(),
+    };
     // create threadsafe context
     let ctx = Context::new(args.scrape_url, provider);
     let ctx = Arc::new(Mutex::new(ctx));
