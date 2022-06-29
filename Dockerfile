@@ -15,6 +15,7 @@ RUN cargo build --release
 FROM rust as worker
 WORKDIR /app
 # install os dependencies
+ENV TINI_VERSION v0.19.0
 RUN apt install git
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
