@@ -47,10 +47,9 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
             // collect and append metadata values
             let meta = ctx.meta_provider.get_values_for(&stream.name);
             let mut meta: Vec<&str> = meta.iter().map(|s| &**s).collect();
-            meta.append(&mut lbs);
+            lbs.append(&mut meta);
             // reference labels
             let lbs = &lbs;
-
             // incoming bytes
             let incoming_bytes = ctx
                 .nginx_rtmp_stream_incoming_bytes_total
