@@ -37,6 +37,32 @@ impl Context {
 		))
         .unwrap()
         .set(1.0);
+        // export metadata fields as metric
+        let field_metric = prometheus::register_int_gauge_vec!(
+            opts!(
+                "nginx_rtmp_exporta_metadata_fields",
+                "A metric with constant value '1', labelled with available metadata fields."
+            ),
+            &["field"]
+        )
+        .unwrap();
+        meta_provider.get_fields().iter().for_each(|field| {
+            field_metric.with_label_values(&[field.as_str()]).set(1);
+        });
+        // export metadata values as metric
+        let value_metric = prometheus::register_int_gauge_vec!(
+            opts!(
+                "nginx_rtmp_exporta_metadata_values",
+                "A metric with constant value '1', labelled with available metadata values."
+            ),
+            &["stream", "field", "value"]
+        )
+        .unwrap();
+        meta_provider.entries().iter().for_each(|(stream, field, value)| {
+            value_metric
+                .with_label_values(&[stream.as_str(), field.as_str(), value.as_str()])
+                .set(1);
+        });
         // create stream labels
         let mut labels = vec!["application", "stream"];
         let mut fields = meta_provider.get_fields().iter().map(|s| &**s).collect();

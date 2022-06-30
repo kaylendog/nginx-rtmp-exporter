@@ -152,6 +152,15 @@ impl MetaProvider {
             })
             .collect()
     }
+    /// Return a vector containing all metadata entries.
+    pub fn entries(&self) -> Vec<(String, String, String)> {
+        self.metadata
+            .iter()
+            .flat_map(|(stream, meta)| {
+                meta.iter().map(|(field, value)| (stream.clone(), field.clone(), value.clone()))
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
