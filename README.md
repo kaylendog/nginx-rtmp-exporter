@@ -61,7 +61,7 @@ The exporter also supports supplying metadata to streams. Using the `--metadata`
 fields = ["<field>"]
 
 [metadata.<stream>]
-<field> = "<value>"
+field = "<value>"
 ```
 
 Any metadata provided for each stream is passed through to Prometheus as labels.
