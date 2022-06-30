@@ -40,7 +40,7 @@ impl Context {
         // export metadata fields as metric
         let field_metric = prometheus::register_int_gauge_vec!(
             opts!(
-                "nginx_rtmp_exporta_metadata_fields",
+                "nginx_rtmp_exporter_metadata_fields",
                 "A metric with constant value '1', labelled with available metadata fields."
             ),
             &["field"]
@@ -52,7 +52,7 @@ impl Context {
         // export metadata values as metric
         let value_metric = prometheus::register_int_gauge_vec!(
             opts!(
-                "nginx_rtmp_exporta_metadata_values",
+                "nginx_rtmp_exporter_metadata_values",
                 "A metric with constant value '1', labelled with available metadata values."
             ),
             &["stream", "field", "value"]
