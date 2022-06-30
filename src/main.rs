@@ -4,6 +4,7 @@ mod metrics;
 mod xml;
 
 use std::{
+    convert::Infallible,
     env,
     error::Error,
     net::{IpAddr, SocketAddr},
@@ -13,21 +14,20 @@ use std::{
 
 use clap::Parser;
 use dotenv::dotenv;
+use meta::Format;
 use prometheus::{Encoder, TextEncoder};
 use reqwest::Url;
+use serde::Serialize;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
+use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{
     http::HeaderValue,
     hyper::{header::CONTENT_TYPE, Body, StatusCode},
-    Filter, Reply,
+    Filter, Rejection, Reply,
 };
 
-use crate::{
-    context::Context,
-    meta::{MetaContainer, MetaProvider},
-    metrics::collect_metrics,
-};
+use crate::{context::Context, meta::MetaProvider, metrics::collect_metrics};
 
 /// Prometheus data exporter for NGINX servers running the nginx-rtmp-module.
 #[derive(Parser)]
@@ -44,6 +44,9 @@ struct Args {
     /// An optional path to a metadata file.
     #[clap(long)]
     pub metadata: Option<PathBuf>,
+    /// An optional format for the metadata file.
+    #[clap(long, default_value = "json")]
+    pub format: Format,
 }
 
 fn encode_metrics() -> Result<(TextEncoder, String), Box<dyn Error>> {
@@ -56,11 +59,53 @@ fn encode_metrics() -> Result<(TextEncoder, String), Box<dyn Error>> {
     Ok((encoder, buf))
 }
 
+/// An API error serializable to JSON.
+#[derive(Serialize)]
+struct ErrorMessage {
+    code: u16,
+    message: String,
+}
+
+async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
+    let code;
+    let message;
+
+    if err.is_not_found() {
+        code = StatusCode::NOT_FOUND;
+        message = "NOT_FOUND";
+    } else if let Some(e) = err.find::<warp::filters::body::BodyDeserializeError>() {
+        message = match e.source() {
+            Some(cause) => {
+                if cause.to_string().contains("denom") {
+                    "FIELD_ERROR: denom"
+                } else {
+                    "BAD_REQUEST"
+                }
+            }
+            None => "BAD_REQUEST",
+        };
+        code = StatusCode::BAD_REQUEST;
+    } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
+        code = StatusCode::METHOD_NOT_ALLOWED;
+        message = "METHOD_NOT_ALLOWED";
+    } else {
+        error!("unhandled rejection: {:?}", err);
+        code = StatusCode::INTERNAL_SERVER_ERROR;
+        message = "UNHANDLED_REJECTION";
+    };
+
+    let json = warp::reply::json(&ErrorMessage { code: code.as_u16(), message: message.into() });
+
+    Ok(warp::reply::with_status(json, code))
+}
+
 #[tokio::main]
 async fn main() {
     let args: Args = Args::parse();
     // intialize tracing
-    tracing_subscriber::fmt::init();
+    let filter =
+        env::var("RUST_LOG").unwrap_or_else(|_| "warn,nginx_rtmp_exporter=info".to_owned());
+    tracing_subscriber::fmt().with_env_filter(filter).with_span_events(FmtSpan::CLOSE).init();
     // print splash
     info!("{} v{}", env!("CARGO_PKG_NAME"), env!("VERGEN_GIT_SEMVER"));
     // print version information
@@ -75,7 +120,12 @@ async fn main() {
     }
     // load metadata
     let provider = match args.metadata {
-        Some(path) => MetaProvider::from_toml(path).expect("Failed to load metadata from file"),
+        Some(path) => {
+            let provider =
+                MetaProvider::from_file(&path, args.format).expect("Failed to load metadata");
+            info!("Loaded metadata from {:?}", path);
+            provider
+        }
         None => MetaProvider::default(),
     };
     // create threadsafe context
@@ -107,7 +157,9 @@ async fn main() {
                     .into_response()
             }
         })
-        .with(warp::trace::request());
+        .recover(handle_rejection)
+        .with(warp::trace::request())
+        .with(warp::log("nginx_rtmp_exporter"));
     // get address and listen
     let addr = SocketAddr::from((args.host, args.port));
     info!("Listening for requests on {}", addr);
