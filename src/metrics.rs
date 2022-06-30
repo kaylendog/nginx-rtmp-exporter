@@ -4,7 +4,6 @@ use tracing::debug;
 
 use crate::{context::Context, xml::fetch_nginx_stats};
 
-#[tracing::instrument]
 pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     debug!("collecting metrics...");
     let stats = fetch_nginx_stats(&ctx.rtmp_stats_endpoint).await?;
@@ -42,6 +41,7 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     // iterate through streams and set stats
     stats.server.applications.iter().for_each(|application| {
         application.live.streams.iter().for_each(|stream| {
+            debug!("resolving information for stream {}", stream.name);
             // label values
             let mut lbs = vec![application.name.as_str(), stream.name.as_str()];
             // collect and append metadata values

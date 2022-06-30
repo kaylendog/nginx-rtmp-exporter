@@ -1,5 +1,5 @@
 //! Handles supplying custom metadata to the metrics scraper.
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fmt::Debug, fs, path::Path, str::FromStr};
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
@@ -51,22 +51,56 @@ pub struct MetaProvider {
     metadata: HashMap<String, HashMap<String, String>>,
 }
 
+/// Enum for the supported formats of metadata file.
+pub enum Format {
+    /// The JSON format.
+    JSON,
+    /// The TOML format.
+    TOML,
+}
+
+impl FromStr for Format {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "json" => Ok(Format::JSON),
+            "toml" => Ok(Format::TOML),
+            _ => bail!("Unknown format: {}", s),
+        }
+    }
+}
+
 impl MetaProvider {
+    /// Create a metadata provider from a file, specifying the file format.
+    pub fn from_file(path: impl AsRef<Path>, format: Format) -> Result<Self> {
+        match format {
+            Format::JSON => Self::from_json(path),
+            Format::TOML => Self::from_toml(path),
+        }
+    }
     /// Create a metadata provider from a TOML file.
     pub fn from_toml<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = fs::read_to_string(path).context("Failed to read meta file")?;
-        let metafile: MetaFile = toml::from_str(&file).context("Failed to parse meta file")?;
+        let file: MetaFile = toml::from_str(&file).context("Failed to parse meta file")?;
+        Ok(Self::from_meta_file(file))
+    }
+    /// Create a metadata provider from a JSON file.
+    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let file = fs::read_to_string(path).context("Failed to read meta file")?;
+        let file: MetaFile = serde_json::from_str(&file).context("Failed to parse meta file")?;
+        Ok(Self::from_meta_file(file))
+    }
+    /// Create a provider from a `MetaFile`.
+    fn from_meta_file(file: MetaFile) -> Self {
         let mut container = MetaContainer::default();
         // iterate and add fields
-        metafile.fields.iter().for_each(|field| container.add_field(field));
+        file.fields.iter().for_each(|field| container.add_field(field));
         // iterate and add values
         let mut container = container.as_provider();
-        metafile
-            .metadata
+        file.metadata
             .iter()
             .for_each(|(stream, meta)| container.add_value_many(stream, meta.iter()).unwrap());
-
-        Ok(container)
+        container
     }
     /// Add a value to this provider.
     pub fn with_value<S: AsRef<str>>(mut self, stream: S, field: S, value: S) -> Result<Self> {
@@ -85,14 +119,14 @@ impl MetaProvider {
         }
         // get and insert
         let map = self.metadata.get_mut(stream.as_ref()).expect("Failed to get stream metadata");
-        map.insert(field.as_ref().to_owned(), stream.as_ref().to_owned());
+        map.insert(field.as_ref().to_owned(), value.as_ref().to_owned());
         Ok(())
     }
     /// Borrow and add many values to the provider.
     pub fn add_value_many<S, I>(&mut self, stream: S, values: I) -> Result<()>
     where
-        S: AsRef<str> + Clone,
-        I: Iterator<Item = (S, S)>,
+        S: AsRef<str> + Clone + Debug,
+        I: Iterator<Item = (S, S)> + Debug,
     {
         for (field, value) in values {
             self.add_value(stream.clone(), field, value)?;
@@ -105,26 +139,18 @@ impl MetaProvider {
         &self.fields
     }
     /// Get the field-sorted values of a stream's meta.
-    pub fn get_values_for<S: AsRef<str>>(&self, stream: S) -> Vec<String> {
-        let values: Option<Vec<String>> = self.metadata.get(stream.as_ref()).map(|m| {
-            let mut entries: Vec<_> = m.iter().collect();
-            entries.sort_by(|a, b| {
-                self.fields
-                    .iter()
-                    .position(|f| f == a.0)
-                    .expect("Mismatch between defined fields and provided meta")
-                    .partial_cmp(
-                        &self
-                            .fields
-                            .iter()
-                            .position(|f| f == b.0)
-                            .expect("Mismatch between defined fields and provided meta"),
-                    )
-                    .expect("Failed to compare metadata")
-            });
-            entries.into_iter().map(|(_, v)| v.clone()).collect()
-        });
-        values.unwrap_or(vec![])
+    pub fn get_values_for<S: AsRef<str> + Debug>(&self, stream: S) -> Vec<String> {
+        self.fields
+            .iter()
+            .map(|field| {
+                self.metadata
+                    .get(stream.as_ref())
+                    .unwrap_or(&HashMap::new())
+                    .get(field)
+                    .unwrap_or(&"unspecified".to_owned())
+                    .to_owned()
+            })
+            .collect()
     }
 }
 
@@ -133,14 +159,62 @@ mod tests {
     use super::MetaFile;
 
     #[test]
-    fn test_parse_meta_file() {
+    fn test_parse_meta_file_toml() {
         let file = r#"
-fields = ["stadium"]
+fields = ["message"]
 
 [metadata]
-[[eaf8409c-6ee0-456b-aef8-d3477e6c5fdc]]
-stadium = "hello"
+eaf8409c-6ee0-456b-aef8-d3477e6c5fdc = { message = "hello" }
 "#;
-        let _: MetaFile = toml::from_str(file).unwrap();
+        let file: MetaFile = toml::from_str(file).expect("failed to parse meta file");
+        println!("{:?}", file);
+        assert_eq!(file.fields, vec!["message"]);
+        assert_eq!(file.metadata.len(), 1);
+        assert_eq!(
+            file.metadata
+                .get("eaf8409c-6ee0-456b-aef8-d3477e6c5fdc")
+                .expect("key did not exist")
+                .len(),
+            1
+        );
+        assert_eq!(
+            file.metadata
+                .get("eaf8409c-6ee0-456b-aef8-d3477e6c5fdc")
+                .expect("key did not exist")
+                .get("message")
+                .expect("key did not exist"),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn test_parse_meta_file_json() {
+        let file = r#"{
+    "fields": ["message"],
+	"metadata": {
+		"eaf8409c-6ee0-456b-aef8-d3477e6c5fdc": {
+			"message": "hello"
+		}
+	}
+}"#;
+        let file: MetaFile = serde_json::from_str(file).expect("failed to parse json");
+        println!("{:?}", file);
+        assert_eq!(file.fields, vec!["message"]);
+        assert_eq!(file.metadata.len(), 1);
+        assert_eq!(
+            file.metadata
+                .get("eaf8409c-6ee0-456b-aef8-d3477e6c5fdc")
+                .expect("key did not exist")
+                .len(),
+            1
+        );
+        assert_eq!(
+            file.metadata
+                .get("eaf8409c-6ee0-456b-aef8-d3477e6c5fdc")
+                .expect("key did not exist")
+                .get("message")
+                .expect("key did not exist"),
+            "hello"
+        );
     }
 }
