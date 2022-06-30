@@ -77,11 +77,9 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
                 .with_label_values(lbs)
                 .set(stream.bw_video as i64);
             // audio bandwidth
-            if stream.bw_audio != 0 {
-                ctx.nginx_rtmp_stream_bandwidth_audio
-                    .with_label_values(lbs)
-                    .set(stream.bw_audio as i64);
-            }
+			ctx.nginx_rtmp_stream_bandwidth_audio
+				.with_label_values(lbs)
+				.set(stream.bw_audio as i64);
             // avsync
             // if this stream includes audio, set avsync
             if stream.bw_audio != 0 {
