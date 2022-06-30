@@ -3,19 +3,6 @@ use reqwest::Url;
 
 use crate::meta::MetaProvider;
 
-macro_rules! append {
-    ( $lhs:expr, $rhs:expr ) => {
-        &{
-            let mut lhs: Vec<&str> = $lhs.to_vec();
-            let mut rhs: Vec<&str> = $rhs.iter().map(|s| &**s).collect();
-            let mut output: Vec<&str> = Vec::new();
-            output.append(&mut lhs);
-            output.append(&mut rhs);
-            output
-        }
-    };
-}
-
 #[derive(Debug)]
 pub struct Context {
     pub rtmp_stats_endpoint: Url,
@@ -51,7 +38,10 @@ impl Context {
         .unwrap()
         .set(1.0);
         // create stream labels
-        let labels = append!(&["stream", "application"], meta_provider.get_fields());
+        let mut labels = vec!["application", "stream"];
+        let mut fields = meta_provider.get_fields().iter().map(|s| &**s).collect();
+        labels.append(&mut fields);
+        let labels = &labels;
         // create context
         Context {
             rtmp_stats_endpoint: endpoint,
