@@ -68,4 +68,4 @@ Any metadata provided for each stream is passed through to Prometheus as labels.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0. See the [LICENSE](./LICENSE) file for more information.
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](./LICENSE) file for more information.
