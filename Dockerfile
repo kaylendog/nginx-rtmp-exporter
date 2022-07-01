@@ -16,7 +16,7 @@ RUN cargo build --release
 FROM ubuntu as worker
 WORKDIR /app
 # install os dependencies
-RUN apt install libssl-dev
+RUN apt install -y libssl-dev
 # install tini
 ENV TINI_VERSION v0.19.0
 RUN apt update
