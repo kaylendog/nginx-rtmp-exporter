@@ -1,4 +1,4 @@
-# nginx-rtmp-exporter
+# nginx-rtmp-exporter [![Deploy](https://github.com/kaylendog/nginx-rtmp-exporter/workflows/Deploy/badge.svg)](https://github.com/kaylendog/nginx-rtmp-exporter/actions?query=workflow%3ADeploy)
 
 Prometheus instrumentation service for the NGINX RTMP module.
 
