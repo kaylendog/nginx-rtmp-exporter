@@ -1,8 +1,7 @@
-FROM rust as builder
+FROM rust:alpine as builder
 WORKDIR /build
 # install os dependencies
-RUN apt update
-RUN apt install -y libssl-dev build-essential
+RUN apk add --no-cache build-base openssl-dev
 # copy dependency information
 COPY Cargo.toml Cargo.lock  ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo fetch && rm -rf src
@@ -13,15 +12,10 @@ COPY .git .git
 COPY src src
 RUN cargo build --release
 
-FROM ubuntu as worker
+FROM alpine as worker
 WORKDIR /app
 # install os dependencies
-RUN apt update
-RUN apt install -y git libssl-dev
-# install tini
-ENV TINI_VERSION v0.19.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
-RUN chmod +x /tini
+RUN apk add --no-cache openssl-dev tini
 # copy executable
 COPY --from=builder /build/target/release/nginx-rtmp-exporter ./
 # set tini entrypoint and run
