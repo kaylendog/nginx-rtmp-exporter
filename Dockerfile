@@ -16,6 +16,8 @@ RUN cargo build --release
 FROM ubuntu as worker
 WORKDIR /app
 # install os dependencies
+RUN apk add libssl-dev
+# install tini
 ENV TINI_VERSION v0.19.0
 RUN apt update
 RUN apt install -y git
@@ -24,7 +26,6 @@ RUN chmod +x /tini
 # copy executable
 COPY --from=builder /build/target/release/nginx-rtmp-exporter ./
 # set tini entrypoint and run
-ENTRYPOINT [ "/tini", "--" ]
-CMD [ "/app/nginx-rtmp-exporter" ]
+ENTRYPOINT [ "/tini", "--", "/app/nginx-rtmp-exporter" ]
 
 EXPOSE 9114
