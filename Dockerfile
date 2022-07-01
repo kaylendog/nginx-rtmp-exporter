@@ -13,7 +13,7 @@ COPY .git .git
 COPY src src
 RUN cargo build --release
 
-FROM rust as worker
+FROM ubuntu as worker
 WORKDIR /app
 # install os dependencies
 ENV TINI_VERSION v0.19.0
