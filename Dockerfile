@@ -19,6 +19,6 @@ RUN apk add --no-cache openssl-dev tini
 # copy executable
 COPY --from=builder /build/target/release/nginx-rtmp-exporter ./
 # set tini entrypoint and run
-ENTRYPOINT [ "/tini", "--", "/app/nginx-rtmp-exporter" ]
+ENTRYPOINT [ "/sbin/tini", "--", "/app/nginx-rtmp-exporter" ]
 
 EXPOSE 9114
