@@ -8,7 +8,7 @@ pub struct Context {
     pub rtmp_stats_endpoint: Url,
     pub nginx_build_info: IntGaugeVec,
     pub nginx_rtmp_application_count: IntGauge,
-    pub nginx_rtmp_active_streams: IntGauge,
+    pub nginx_rtmp_active_streams: IntGaugeVec,
     pub nginx_rtmp_incoming_bytes_total: IntCounter,
     pub nginx_rtmp_outgoing_bytes_total: IntCounter,
     pub nginx_rtmp_incoming_bandwidth: IntGauge,
@@ -84,10 +84,10 @@ impl Context {
                 "A metric tracking the number of NGINX RTMP applications."
             ))
             .unwrap(),
-            nginx_rtmp_active_streams: prometheus::register_int_gauge!(opts!(
+            nginx_rtmp_active_streams: prometheus::register_int_gauge_vec!(opts!(
                 "nginx_rtmp_active_streams",
-                "A metric tracking the number of active RTMP streams."
-            ))
+                "A metric tracking the number of active RTMP streams, labelled by application."
+            ), &["application"])
             .unwrap(),
             nginx_rtmp_incoming_bytes_total: prometheus::register_int_counter!(opts!(
                 "nginx_rtmp_incoming_bytes_total",
