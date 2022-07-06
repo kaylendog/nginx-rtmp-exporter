@@ -1,7 +1,5 @@
 FROM rust as builder
 WORKDIR /build
-# install os dependencies
-RUN apt update && apt install -y build-essential libssl-dev
 # copy dependency information
 COPY Cargo.toml Cargo.lock  ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo fetch && rm -rf src
@@ -12,10 +10,10 @@ COPY .git .git
 COPY src src
 RUN cargo build --release
 
-FROM ubuntu as worker
+FROM debian:11-slim as worker
 WORKDIR /app
 # install os dependencies
-RUN apt update && apt install -y libssl-dev
+RUN apt-get update && apt-get install -y libssl-dev
 # add tini
 ENV TINI_VERSION v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
