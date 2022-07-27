@@ -48,7 +48,7 @@ pub struct RtmpStream {
     pub bw_video: u64,
     #[serde(rename = "client")]
     pub clients: Vec<RtmpStreamClient>,
-    pub meta: RtmpStreamMeta,
+    pub meta: Option<RtmpStreamMeta>,
 }
 
 #[derive(Debug, Deserialize)]
