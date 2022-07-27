@@ -31,10 +31,19 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
     // iterate through streams and set stats
     stats.server.applications.iter().for_each(|application| {
         // set active streams
-        ctx.nginx_rtmp_active_streams
-            .with_label_values(&[application.name.as_str()])
-            .set(application.live.streams.len() as i64);
-		// iterate over application streams
+        ctx.nginx_rtmp_active_streams.with_label_values(&[application.name.as_str()]).set(
+            application
+                .live
+                .streams
+                .iter()
+                // ignore streams with no metadata defined
+                .filter(|stream| stream.meta.is_some())
+				// ignore streams that are only used as relays
+                .filter(|stream| stream.clients.iter().any(|client| !client.is_local_relay()))
+                .collect::<Vec<_>>()
+                .len() as i64,
+        );
+        // iterate over application streams
         application.live.streams.iter().for_each(|stream| {
             debug!("resolving information for stream {}", stream.name);
             // label values

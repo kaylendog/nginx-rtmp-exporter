@@ -1,4 +1,7 @@
-use std::error::Error;
+use std::{
+    error::Error,
+    net::{IpAddr, Ipv4Addr},
+};
 
 use reqwest::Url;
 use serde::Deserialize;
@@ -63,6 +66,32 @@ pub struct RtmpStreamClient {
     pub timestamp: u64,
     pub publishing: Option<()>,
     pub active: Option<()>,
+}
+
+impl RtmpStreamClient {
+    /// This method checks if this client is a relay.
+    pub fn is_relay(&self) -> bool {
+        self.flashver == "ngx-local-relay"
+    }
+    /// This method checks if this client is a local relay.
+    pub fn is_local_relay(&self) -> bool {
+        // check if this client is a local relay
+        if !self.is_relay() {
+            return false;
+        }
+        // check if address is defined
+        if !self.address.is_some() {
+            return false;
+        }
+        // parse the address
+        let address = match self.address.as_ref().unwrap().parse::<IpAddr>() {
+            Ok(addr) => addr,
+            Err(_) => return false,
+        };
+        // check if address is loopback or private
+        address.is_loopback()
+            || if let IpAddr::V4(address) = address { address.is_private() } else { false }
+    }
 }
 
 #[derive(Debug, Deserialize)]
