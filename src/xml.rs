@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    net::{IpAddr, Ipv4Addr},
+    net::{IpAddr},
 };
 
 use reqwest::Url;

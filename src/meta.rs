@@ -8,7 +8,7 @@ use serde::Deserialize;
 struct MetaFile {
     /// A list of fields to specify for each stream.
     pub fields: Vec<String>,
-    /// The metadata to apply.
+    /// The metadata to apply. This is a hashmap of stream names to a map of metadata entries.
     pub metadata: HashMap<String, HashMap<String, String>>,
 }
 
@@ -161,6 +161,14 @@ impl MetaProvider {
             })
             .collect()
     }
+	/// Return a vector containing the names of all known streams.
+	pub fn streams(&self) -> Vec<String> {
+		self.metadata.keys().cloned().collect()
+	}
+	/// This method returns the metadata hashmap for the given stream.
+	pub fn for_stream<S: AsRef<str>>(&self, stream: S) -> Option<&HashMap<String, String>> {
+		self.metadata.get(stream.as_ref())
+	}
 }
 
 #[cfg(test)]

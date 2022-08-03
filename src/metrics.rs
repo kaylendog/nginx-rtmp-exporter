@@ -1,5 +1,6 @@
-use std::error::Error;
+use std::{error::Error, collections::HashMap};
 
+use prometheus::core::Collector;
 use tracing::debug;
 
 use crate::{context::Context, xml::fetch_nginx_stats};
@@ -19,15 +20,25 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
         .unwrap()
         .set(1);
     // incoming bytes
-    ctx.nginx_rtmp_incoming_bytes_total.reset();
-    ctx.nginx_rtmp_incoming_bytes_total.inc_by(stats.bytes_in);
+    ctx.nginx_rtmp_incoming_bytes_total.set(stats.bytes_in as i64);
     // outgoing bytes
-    ctx.nginx_rtmp_outgoing_bytes_total.reset();
-    ctx.nginx_rtmp_outgoing_bytes_total.inc_by(stats.bytes_out);
+    ctx.nginx_rtmp_outgoing_bytes_total.set(stats.bytes_out as i64);
     // incoming bandwidth
     ctx.nginx_rtmp_incoming_bandwidth.set(stats.bw_in as i64);
     // outgoing bandwidth
     ctx.nginx_rtmp_outgoing_bandwidth.set(stats.bw_out as i64);
+
+	// reset all metrics to prevent stale data
+	// TODO: use existing metrics to remove extraneous labels
+	ctx.nginx_rtmp_stream_bandwidth_audio.reset();
+	ctx.nginx_rtmp_stream_bandwidth_video.reset();
+	ctx.nginx_rtmp_stream_incoming_bandwidth.reset();
+	ctx.nginx_rtmp_stream_outgoing_bandwidth.reset();
+	ctx.nginx_rtmp_stream_incoming_bytes_total.reset();
+	ctx.nginx_rtmp_stream_outgoing_bytes_total.reset();
+	ctx.nginx_rtmp_stream_publisher_avsync.reset();
+	ctx.nginx_rtmp_stream_total_clients.reset();
+
     // iterate through streams and set stats
     stats.server.applications.iter().for_each(|application| {
         // set active streams
@@ -38,7 +49,7 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
                 .iter()
                 // ignore streams with no metadata defined
                 .filter(|stream| stream.meta.is_some())
-				// ignore streams that are only used as relays
+                // ignore streams that are only used as relays
                 .filter(|stream| stream.clients.iter().any(|client| !client.is_local_relay()))
                 .collect::<Vec<_>>()
                 .len() as i64,
@@ -59,15 +70,13 @@ pub async fn collect_metrics(ctx: &mut Context) -> Result<(), Box<dyn Error>> {
                 .nginx_rtmp_stream_incoming_bytes_total
                 .get_metric_with_label_values(lbs)
                 .unwrap();
-            incoming_bytes.reset();
-            incoming_bytes.inc_by(stream.bytes_in);
+            incoming_bytes.set(stream.bytes_in as i64);
             // outgoing bytes
             let outgoing_bytes = ctx
                 .nginx_rtmp_stream_outgoing_bytes_total
                 .get_metric_with_label_values(lbs)
                 .unwrap();
-            outgoing_bytes.reset();
-            outgoing_bytes.inc_by(stream.bytes_out);
+            outgoing_bytes.set(stream.bytes_out as i64);
             // incoming bandwidth
             ctx.nginx_rtmp_stream_incoming_bandwidth
                 .with_label_values(lbs)

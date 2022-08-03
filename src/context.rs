@@ -1,4 +1,6 @@
-use prometheus::{labels, opts, IntCounter, IntCounterVec, IntGauge, IntGaugeVec};
+use prometheus::{
+    labels, opts, IntGauge, IntGaugeVec,
+};
 use reqwest::Url;
 
 use crate::meta::MetaProvider;
@@ -9,12 +11,12 @@ pub struct Context {
     pub nginx_build_info: IntGaugeVec,
     pub nginx_rtmp_application_count: IntGauge,
     pub nginx_rtmp_active_streams: IntGaugeVec,
-    pub nginx_rtmp_incoming_bytes_total: IntCounter,
-    pub nginx_rtmp_outgoing_bytes_total: IntCounter,
+    pub nginx_rtmp_incoming_bytes_total: IntGauge,
+    pub nginx_rtmp_outgoing_bytes_total: IntGauge,
     pub nginx_rtmp_incoming_bandwidth: IntGauge,
     pub nginx_rtmp_outgoing_bandwidth: IntGauge,
-    pub nginx_rtmp_stream_incoming_bytes_total: IntCounterVec,
-    pub nginx_rtmp_stream_outgoing_bytes_total: IntCounterVec,
+    pub nginx_rtmp_stream_incoming_bytes_total: IntGaugeVec,
+    pub nginx_rtmp_stream_outgoing_bytes_total: IntGaugeVec,
     pub nginx_rtmp_stream_incoming_bandwidth: IntGaugeVec,
     pub nginx_rtmp_stream_outgoing_bandwidth: IntGaugeVec,
     pub nginx_rtmp_stream_bandwidth_video: IntGaugeVec,
@@ -89,12 +91,12 @@ impl Context {
                 "A metric tracking the number of active RTMP streams, labelled by application."
             ), &["application"])
             .unwrap(),
-            nginx_rtmp_incoming_bytes_total: prometheus::register_int_counter!(opts!(
+            nginx_rtmp_incoming_bytes_total: prometheus::register_int_gauge!(opts!(
                 "nginx_rtmp_incoming_bytes_total",
                 "A metric tracking the total number of incoming bytes processed."
             ))
             .unwrap(),
-            nginx_rtmp_outgoing_bytes_total: prometheus::register_int_counter!(opts!(
+            nginx_rtmp_outgoing_bytes_total: prometheus::register_int_gauge!(opts!(
                 "nginx_rtmp_outgoing_bytes_total",
                 "A metric tracking the total number of outgoing bytes processed."
             ))
@@ -110,7 +112,7 @@ impl Context {
             ))
             .unwrap(),
 
-            nginx_rtmp_stream_incoming_bytes_total: prometheus::register_int_counter_vec!(
+            nginx_rtmp_stream_incoming_bytes_total: prometheus::register_int_gauge_vec!(
                 opts!(
                     "nginx_rtmp_stream_incoming_bytes_total",
                     "A metric tracking the total received bytes from a stream, labelled by stream and application."
@@ -118,7 +120,7 @@ impl Context {
                 labels
             )
             .unwrap(),
-            nginx_rtmp_stream_outgoing_bytes_total: prometheus::register_int_counter_vec!(
+            nginx_rtmp_stream_outgoing_bytes_total: prometheus::register_int_gauge_vec!(
                 opts!(
                     "nginx_rtmp_stream_outgoing_bytes_total",
                     "A metric tracking the total sent bytes by a given stream, labelled by stream and application."
