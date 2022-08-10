@@ -1,13 +1,12 @@
-use prometheus::{
-    labels, opts, IntGauge, IntGaugeVec,
-};
-use reqwest::Url;
+use std::time::Duration;
+
+use prometheus::{labels, opts, IntGauge, IntGaugeVec};
+use reqwest::{Client, Url};
 
 use crate::meta::MetaProvider;
 
 #[derive(Debug)]
-pub struct Context {
-    pub rtmp_stats_endpoint: Url,
+pub struct MetricContext {
     pub nginx_build_info: IntGaugeVec,
     pub nginx_rtmp_application_count: IntGauge,
     pub nginx_rtmp_active_streams: IntGaugeVec,
@@ -23,11 +22,10 @@ pub struct Context {
     pub nginx_rtmp_stream_bandwidth_audio: IntGaugeVec,
     pub nginx_rtmp_stream_publisher_avsync: IntGaugeVec,
     pub nginx_rtmp_stream_total_clients: IntGaugeVec,
-    pub meta_provider: MetaProvider,
 }
 
-impl Context {
-    pub fn new(endpoint: Url, meta_provider: MetaProvider) -> Self {
+impl MetricContext {
+    pub fn new(meta_provider: &MetaProvider) -> Self {
         // register build info gauge
         prometheus::register_gauge!(opts!(
 			"nginx_rtmp_exporter_build_info",
@@ -65,14 +63,15 @@ impl Context {
                 .with_label_values(&[stream.as_str(), field.as_str(), value.as_str()])
                 .set(1);
         });
+
         // create stream labels
         let mut labels = vec!["application", "stream"];
-        let mut fields = meta_provider.get_fields().iter().map(|s| &**s).collect();
-        labels.append(&mut fields);
+        meta_provider.get_fields().iter().for_each(|str| {
+            labels.push(str.as_str());
+        });
         let labels = &labels;
-        // create context
-        Context {
-            rtmp_stats_endpoint: endpoint,
+
+        Self {
             nginx_build_info: prometheus::register_int_gauge_vec!(
                 opts!(
                 "nginx_build_info",
@@ -171,7 +170,30 @@ impl Context {
 				),
 				labels
 			).unwrap(),
-			meta_provider
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Context {
+    pub http: Client,
+    pub meta_provider: MetaProvider,
+    pub metrics: MetricContext,
+    pub rtmp_stats_endpoint: Url,
+}
+
+impl Context {
+    pub fn new(endpoint: Url, meta_provider: MetaProvider) -> Self {
+        let metrics = MetricContext::new(&meta_provider);
+        // create context
+        Self {
+            http: reqwest::Client::builder()
+                .timeout(Duration::from_secs(3))
+                .build()
+                .expect("failed to build reqwest client"),
+            meta_provider,
+            metrics,
+            rtmp_stats_endpoint: endpoint,
         }
     }
 }

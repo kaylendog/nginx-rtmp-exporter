@@ -8,7 +8,8 @@ use serde::Deserialize;
 struct MetaFile {
     /// A list of fields to specify for each stream.
     pub fields: Vec<String>,
-    /// The metadata to apply. This is a hashmap of stream names to a map of metadata entries.
+    /// The metadata to apply. This is a hashmap of stream names to a map of
+    /// metadata entries.
     pub metadata: HashMap<String, HashMap<String, String>>,
 }
 
@@ -54,17 +55,17 @@ pub struct MetaProvider {
 /// Enum for the supported formats of metadata file.
 pub enum Format {
     /// The JSON format.
-    JSON,
+    Json,
     /// The TOML format.
-    TOML,
+    Toml,
 }
 
 impl FromStr for Format {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "json" => Ok(Format::JSON),
-            "toml" => Ok(Format::TOML),
+            "json" => Ok(Format::Json),
+            "toml" => Ok(Format::Toml),
             _ => bail!("Unknown format: {}", s),
         }
     }
@@ -74,8 +75,8 @@ impl MetaProvider {
     /// Create a metadata provider from a file, specifying the file format.
     pub fn from_file(path: impl AsRef<Path>, format: Format) -> Result<Self> {
         match format {
-            Format::JSON => Self::from_json(path),
-            Format::TOML => Self::from_toml(path),
+            Format::Json => Self::from_json(path),
+            Format::Toml => Self::from_toml(path),
         }
     }
     /// Create a metadata provider from a TOML file.
@@ -161,14 +162,14 @@ impl MetaProvider {
             })
             .collect()
     }
-	/// Return a vector containing the names of all known streams.
-	pub fn streams(&self) -> Vec<String> {
-		self.metadata.keys().cloned().collect()
-	}
-	/// This method returns the metadata hashmap for the given stream.
-	pub fn for_stream<S: AsRef<str>>(&self, stream: S) -> Option<&HashMap<String, String>> {
-		self.metadata.get(stream.as_ref())
-	}
+    /// Return a vector containing the names of all known streams.
+    pub fn streams(&self) -> Vec<String> {
+        self.metadata.keys().cloned().collect()
+    }
+    /// This method returns the metadata hashmap for the given stream.
+    pub fn for_stream<S: AsRef<str>>(&self, stream: S) -> Option<&HashMap<String, String>> {
+        self.metadata.get(stream.as_ref())
+    }
 }
 
 #[cfg(test)]

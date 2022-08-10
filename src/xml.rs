@@ -1,10 +1,8 @@
-use std::{
-    error::Error,
-    net::{IpAddr},
-};
+use std::{error::Error, net::IpAddr};
 
-use reqwest::Url;
 use serde::Deserialize;
+
+use crate::context::Context;
 
 #[derive(Debug, Deserialize)]
 pub struct RtmpStats {
@@ -80,7 +78,7 @@ impl RtmpStreamClient {
             return false;
         }
         // check if address is defined
-        if !self.address.is_some() {
+        if self.address.is_none() {
             return false;
         }
         // parse the address
@@ -124,12 +122,14 @@ pub struct RtmpStreamAudioMeta {
     pub sample_rate: u32,
 }
 
-/// Fetch NGINX RTMP stats from the given URL.
-pub async fn fetch_nginx_stats(url: &Url) -> Result<RtmpStats, Box<dyn Error>> {
-    let res = reqwest::get(url.clone()).await?;
-    let text = &res.text().await?;
-    let mut de = quick_xml::de::Deserializer::from_str(text);
-    serde_path_to_error::deserialize(&mut de).map_err(|err| err.into())
+impl Context {
+	/// This method fetches the RTMP stats from the given URL.
+	pub async fn fetch_rtmp_stats(&self) -> Result<RtmpStats, Box<dyn Error>> {
+		let req = self.http.get(self.rtmp_stats_endpoint.clone()).build()?;
+		let text = self.http.execute(req).await?.text().await?;
+		let mut de = quick_xml::de::Deserializer::from_str(&text);
+		serde_path_to_error::deserialize(&mut de).map_err(|err| err.into())
+	}
 }
 
 #[cfg(test)]
