@@ -1,19 +1,33 @@
-use tracing::{debug, warn};
+use tracing::{debug, trace, warn};
 
-use crate::{context::Context};
+use crate::context::Context;
 
 pub async fn collect_metrics(ctx: &mut Context) {
     debug!("collecting metrics...");
-    let stats = ctx.fetch_rtmp_stats().await;
-	// handle errors
-	if let Err(err) = stats {
-		warn!("failed to fetch RTMP stats: {}", err);
-		return;
-	}
-	let stats = stats.unwrap();
-    // reset the vector
+    // reset all metrics to prevent stale data
+    // TODO: use existing metrics to remove extraneous labels
+    trace!("resetting metrics...");
     ctx.metrics.nginx_build_info.reset();
-    // hydrate with build info
+    ctx.metrics.nginx_rtmp_incoming_bytes_total.set(0);
+    ctx.metrics.nginx_rtmp_outgoing_bytes_total.set(0);
+    ctx.metrics.nginx_rtmp_incoming_bandwidth.set(0);
+    ctx.metrics.nginx_rtmp_outgoing_bandwidth.set(0);
+    ctx.metrics.nginx_rtmp_stream_bandwidth_audio.reset();
+    ctx.metrics.nginx_rtmp_stream_bandwidth_video.reset();
+    ctx.metrics.nginx_rtmp_stream_incoming_bandwidth.reset();
+    ctx.metrics.nginx_rtmp_stream_outgoing_bandwidth.reset();
+    ctx.metrics.nginx_rtmp_stream_incoming_bytes_total.reset();
+    ctx.metrics.nginx_rtmp_stream_outgoing_bytes_total.reset();
+    ctx.metrics.nginx_rtmp_stream_publisher_avsync.reset();
+    ctx.metrics.nginx_rtmp_stream_total_clients.reset();
+    // fetch stats and handle errors
+    let stats = ctx.fetch_rtmp_stats().await;
+    if let Err(err) = stats {
+        warn!("failed to fetch RTMP stats: {}", err);
+        return;
+    }
+    let stats = stats.unwrap();
+    // hydrate build info metric
     ctx.metrics
         .nginx_build_info
         .get_metric_with_label_values(&[
@@ -23,26 +37,11 @@ pub async fn collect_metrics(ctx: &mut Context) {
         ])
         .unwrap()
         .set(1);
-    // incoming bytes
+    // set root-level metrics
     ctx.metrics.nginx_rtmp_incoming_bytes_total.set(stats.bytes_in as i64);
-    // outgoing bytes
     ctx.metrics.nginx_rtmp_outgoing_bytes_total.set(stats.bytes_out as i64);
-    // incoming bandwidth
     ctx.metrics.nginx_rtmp_incoming_bandwidth.set(stats.bw_in as i64);
-    // outgoing bandwidth
     ctx.metrics.nginx_rtmp_outgoing_bandwidth.set(stats.bw_out as i64);
-
-    // reset all metrics to prevent stale data
-    // TODO: use existing metrics to remove extraneous labels
-    ctx.metrics.nginx_rtmp_stream_bandwidth_audio.reset();
-    ctx.metrics.nginx_rtmp_stream_bandwidth_video.reset();
-    ctx.metrics.nginx_rtmp_stream_incoming_bandwidth.reset();
-    ctx.metrics.nginx_rtmp_stream_outgoing_bandwidth.reset();
-    ctx.metrics.nginx_rtmp_stream_incoming_bytes_total.reset();
-    ctx.metrics.nginx_rtmp_stream_outgoing_bytes_total.reset();
-    ctx.metrics.nginx_rtmp_stream_publisher_avsync.reset();
-    ctx.metrics.nginx_rtmp_stream_total_clients.reset();
-
     // iterate through streams and set stats
     stats.server.applications.iter().for_each(|application| {
         // set active streams
@@ -66,7 +65,6 @@ pub async fn collect_metrics(ctx: &mut Context) {
             let meta = ctx.meta_provider.get_values_for(&stream.name);
             let mut meta: Vec<&str> = meta.iter().map(|s| &**s).collect();
             lbs.append(&mut meta);
-            // reference labels
             let lbs = &lbs;
             // incoming bytes
             let incoming_bytes = ctx

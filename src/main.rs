@@ -140,7 +140,7 @@ async fn main() {
         .and(ctx)
         .then(|ctx: Arc<Mutex<Context>>| async move {
             let mut ctx = ctx.lock().await;
-          	collect_metrics(&mut ctx).await;
+            collect_metrics(&mut ctx).await;
             encode_metrics()
         })
         .map(|res: Result<(TextEncoder, String), Box<dyn Error>>| match res {
