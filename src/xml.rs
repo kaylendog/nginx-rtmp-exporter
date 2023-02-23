@@ -57,7 +57,7 @@ pub struct RtmpStreamClient {
     pub id: u32,
     pub address: Option<String>,
     pub time: u64,
-    pub flashver: String,
+    pub flashver: Option<String>,
     pub pageurl: Option<String>,
     pub dropped: u64,
     pub avsync: i64,
@@ -69,7 +69,7 @@ pub struct RtmpStreamClient {
 impl RtmpStreamClient {
     /// This method checks if this client is a relay.
     pub fn is_relay(&self) -> bool {
-        self.flashver == "ngx-local-relay"
+        self.flashver == Some("ngx-local-relay".to_owned())
     }
     /// This method checks if this client is a local relay.
     pub fn is_local_relay(&self) -> bool {
