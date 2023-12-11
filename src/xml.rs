@@ -124,7 +124,7 @@ pub struct RtmpStreamAudioMeta {
 
 impl Context {
     /// This method fetches the RTMP stats from the given URL.
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub async fn fetch_rtmp_stats(&self) -> Result<RtmpStats, Box<dyn Error>> {
         let req = self.http.get(self.rtmp_stats_endpoint.clone()).build()?;
         let text = self.http.execute(req).await?.text().await?;
