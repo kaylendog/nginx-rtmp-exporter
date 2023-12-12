@@ -87,7 +87,7 @@ impl MetricContext {
             "nginx_rtmp_exporter_metadata_values",
             "A metric with constant value '1', labelled with available metadata values.",
             &global_labels,
-            &vec!["stream", "field", "value"],
+            &["stream", "field", "value"],
         )?;
 
         metadata.entries().iter().for_each(|(stream, field, value)| {
@@ -101,7 +101,7 @@ impl MetricContext {
         metadata.get_fields().iter().for_each(|str| {
             labels.push(str.as_str());
         });
-		let labels = &labels;
+        let labels = &labels;
 
         Ok(Self {
             nginx_build_info: Self::register_int_gauge_vec(

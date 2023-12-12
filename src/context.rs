@@ -150,15 +150,14 @@ impl Context {
                 // avsync
                 // if this stream includes audio, set avsync
                 if stream.bw_audio != 0 {
-                    match stream.clients.iter().find(|client| client.publishing.is_some()) {
-                        Some(client) => {
-                            self.metrics
-                                .nginx_rtmp_stream_publisher_avsync
-                                .with_label_values(lbs)
-                                .set(client.avsync);
-                        }
-                        None => (),
-                    };
+                    if let Some(client) =
+                        stream.clients.iter().find(|client| client.publishing.is_some())
+                    {
+                        self.metrics
+                            .nginx_rtmp_stream_publisher_avsync
+                            .with_label_values(lbs)
+                            .set(client.avsync);
+                    }
                 }
                 // connected clients
                 // total clients - 1, 1 publisher
