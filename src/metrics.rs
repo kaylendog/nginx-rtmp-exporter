@@ -1,124 +1,200 @@
-use tracing::{debug, trace, warn};
+use std::collections::HashMap;
 
-use crate::context::Context;
+use anyhow::{Context as AnyhowContext, Result};
+use prometheus::{labels, opts, IntGauge, IntGaugeVec, Opts};
 
-pub async fn collect_metrics(ctx: &mut Context) {
-    debug!("collecting metrics...");
-    // reset all metrics to prevent stale data
-    // TODO: use existing metrics to remove extraneous labels
-    trace!("resetting metrics...");
-    ctx.metrics.nginx_build_info.reset();
-    ctx.metrics.nginx_rtmp_incoming_bytes_total.set(0);
-    ctx.metrics.nginx_rtmp_outgoing_bytes_total.set(0);
-    ctx.metrics.nginx_rtmp_incoming_bandwidth.set(0);
-    ctx.metrics.nginx_rtmp_outgoing_bandwidth.set(0);
-    ctx.metrics.nginx_rtmp_stream_bandwidth_audio.reset();
-    ctx.metrics.nginx_rtmp_stream_bandwidth_video.reset();
-    ctx.metrics.nginx_rtmp_stream_incoming_bandwidth.reset();
-    ctx.metrics.nginx_rtmp_stream_outgoing_bandwidth.reset();
-    ctx.metrics.nginx_rtmp_stream_incoming_bytes_total.reset();
-    ctx.metrics.nginx_rtmp_stream_outgoing_bytes_total.reset();
-    ctx.metrics.nginx_rtmp_stream_publisher_avsync.reset();
-    ctx.metrics.nginx_rtmp_stream_total_clients.reset();
-    // fetch stats and handle errors
-    let stats = ctx.fetch_rtmp_stats().await;
-    if let Err(err) = stats {
-        warn!("failed to fetch RTMP stats: {}", err);
-        return;
+use crate::meta::MetaFile;
+
+#[derive(Debug)]
+pub struct MetricContext {
+    pub nginx_build_info: IntGaugeVec,
+    pub nginx_rtmp_application_count: IntGauge,
+    pub nginx_rtmp_active_streams: IntGaugeVec,
+    pub nginx_rtmp_incoming_bytes_total: IntGauge,
+    pub nginx_rtmp_outgoing_bytes_total: IntGauge,
+    pub nginx_rtmp_incoming_bandwidth: IntGauge,
+    pub nginx_rtmp_outgoing_bandwidth: IntGauge,
+    pub nginx_rtmp_stream_incoming_bytes_total: IntGaugeVec,
+    pub nginx_rtmp_stream_outgoing_bytes_total: IntGaugeVec,
+    pub nginx_rtmp_stream_incoming_bandwidth: IntGaugeVec,
+    pub nginx_rtmp_stream_outgoing_bandwidth: IntGaugeVec,
+    pub nginx_rtmp_stream_bandwidth_video: IntGaugeVec,
+    pub nginx_rtmp_stream_bandwidth_audio: IntGaugeVec,
+    pub nginx_rtmp_stream_publisher_avsync: IntGaugeVec,
+    pub nginx_rtmp_stream_total_clients: IntGaugeVec,
+}
+
+impl MetricContext {
+    /// Register a vector of integer gauges.
+    ///
+    /// TODO: These methods do a horrific amount of cloning for no good reason -
+    /// pull request to upstream crate?
+    fn register_int_gauge_vec(
+        name: &'static str,
+        description: &'static str,
+        global_labels: &HashMap<String, String>,
+        labels: &[&str],
+    ) -> Result<IntGaugeVec> {
+        let opts = Opts::new(name, description).const_labels(global_labels.clone());
+        let labels: Vec<&str> = labels.iter().map(|x| &**x).collect();
+        prometheus::register_int_gauge_vec!(opts, &labels).context("failed to create int gauge vec")
     }
-    let stats = stats.unwrap();
-    // hydrate build info metric
-    ctx.metrics
-        .nginx_build_info
-        .get_metric_with_label_values(&[
-            &stats.nginx_version,
-            &stats.compiler,
-            &stats.nginx_rtmp_version,
-        ])
+
+    /// Register an integer gauge.
+    fn register_int_gauge(
+        name: &'static str,
+        description: &'static str,
+        global_labels: &HashMap<String, String>,
+        labels: &[&str],
+    ) -> Result<IntGauge> {
+        let labels: Vec<String> = labels.iter().map(|x| x.to_string()).collect();
+        let opts = Opts::new(name, description)
+            .const_labels(global_labels.clone())
+            .variable_labels(labels);
+        prometheus::register_int_gauge!(opts).context("failed to create int gauge")
+    }
+
+    pub fn from_metadata(metadata: &MetaFile) -> Result<Self> {
+        // register build info gauge
+        prometheus::register_gauge!(opts!(
+			"nginx_rtmp_exporter_build_info",
+			"A metric with constant value '1', labelled with nginx-rtmp-exporter's build information.",
+			labels! {
+				"version" => env!("VERGEN_GIT_SEMVER"),
+				"rustc_version" => env!("VERGEN_RUSTC_SEMVER"),
+			}
+		))
         .unwrap()
-        .set(1);
-    // set root-level metrics
-    ctx.metrics.nginx_rtmp_incoming_bytes_total.set(stats.bytes_in as i64);
-    ctx.metrics.nginx_rtmp_outgoing_bytes_total.set(stats.bytes_out as i64);
-    ctx.metrics.nginx_rtmp_incoming_bandwidth.set(stats.bw_in as i64);
-    ctx.metrics.nginx_rtmp_outgoing_bandwidth.set(stats.bw_out as i64);
-    // iterate through streams and set stats
-    stats.server.applications.iter().for_each(|application| {
-        // set active streams
-        ctx.metrics.nginx_rtmp_active_streams.with_label_values(&[application.name.as_str()]).set(
-            application
-                .live
-                .streams
-                .iter()
-                // ignore streams with no metadata defined
-                .filter(|stream| stream.meta.is_some())
-                // ignore streams that are only used as relays
-                .filter(|stream| stream.clients.iter().any(|client| !client.is_local_relay()))
-                .count() as i64,
-        );
-        // iterate over application streams
-        application.live.streams.iter().for_each(|stream| {
-            debug!("resolving information for stream {}", stream.name);
-            // label values
-            let mut lbs = vec![application.name.as_str(), stream.name.as_str()];
-            // collect and append metadata values
-            let meta = ctx.meta_provider.get_values_for(&stream.name);
-            let mut meta: Vec<&str> = meta.iter().map(|s| &**s).collect();
-            lbs.append(&mut meta);
-            let lbs = &lbs;
-            // incoming bytes
-            let incoming_bytes = ctx
-                .metrics
-                .nginx_rtmp_stream_incoming_bytes_total
-                .get_metric_with_label_values(lbs)
-                .unwrap();
-            incoming_bytes.set(stream.bytes_in as i64);
-            // outgoing bytes
-            let outgoing_bytes = ctx
-                .metrics
-                .nginx_rtmp_stream_outgoing_bytes_total
-                .get_metric_with_label_values(lbs)
-                .unwrap();
-            outgoing_bytes.set(stream.bytes_out as i64);
-            // incoming bandwidth
-            ctx.metrics
-                .nginx_rtmp_stream_incoming_bandwidth
-                .with_label_values(lbs)
-                .set(stream.bw_in as i64);
-            // outgoing bandwidth
-            ctx.metrics
-                .nginx_rtmp_stream_outgoing_bandwidth
-                .with_label_values(lbs)
-                .set(stream.bw_out as i64);
-            // video bandwidth
-            ctx.metrics
-                .nginx_rtmp_stream_bandwidth_video
-                .with_label_values(lbs)
-                .set(stream.bw_video as i64);
-            // audio bandwidth
-            ctx.metrics
-                .nginx_rtmp_stream_bandwidth_audio
-                .with_label_values(lbs)
-                .set(stream.bw_audio as i64);
-            // avsync
-            // if this stream includes audio, set avsync
-            if stream.bw_audio != 0 {
-                match stream.clients.iter().find(|client| client.publishing.is_some()) {
-                    Some(client) => {
-                        ctx.metrics
-                            .nginx_rtmp_stream_publisher_avsync
-                            .with_label_values(lbs)
-                            .set(client.avsync);
-                    }
-                    None => (),
-                };
-            }
-            // connected clients
-            // total clients - 1, 1 publisher
-            ctx.metrics
-                .nginx_rtmp_stream_total_clients
-                .with_label_values(lbs)
-                .set((stream.clients.len() - 1) as i64);
+        .set(1.0);
+
+        let global_labels = metadata.global_fields.clone().unwrap_or_default();
+
+        // export metadata fields as metric
+        let field_metric = Self::register_int_gauge_vec(
+            "nginx_rtmp_exporter_metadata_fields",
+            "A metric with constant value '1', labelled with available metadata fields.",
+            &global_labels,
+            &["field"],
+        )?;
+
+        // TODO - this can panic
+        metadata.get_fields().iter().for_each(|field| {
+            field_metric.with_label_values(&[field.as_str()]).set(1);
+        });
+
+        // export metadata values as metric
+        let value_metric = Self::register_int_gauge_vec(
+            "nginx_rtmp_exporter_metadata_values",
+            "A metric with constant value '1', labelled with available metadata values.",
+            &global_labels,
+            &vec!["stream", "field", "value"],
+        )?;
+
+        metadata.entries().iter().for_each(|(stream, field, value)| {
+            value_metric
+                .with_label_values(&[stream.as_str(), field.as_str(), value.as_str()])
+                .set(1);
+        });
+
+        // create stream labels
+        let mut labels = vec!["application", "stream"];
+        metadata.get_fields().iter().for_each(|str| {
+            labels.push(str.as_str());
+        });
+		let labels = &labels;
+
+        Ok(Self {
+            nginx_build_info: Self::register_int_gauge_vec(
+                "nginx_build_info",
+                "A metric with either '0' or '1', labelled with NGINX's build info when available.",
+				&global_labels,
+                &["version", "compiler", "rtmp_version"]
+            )?,
+			nginx_rtmp_application_count: Self::register_int_gauge(
+				"nginx_rtmp_application_count",
+				"A metric tracking the number of NGINX RTMP applications.",
+				&global_labels,
+				&[]
+			)?,
+			nginx_rtmp_active_streams: Self::register_int_gauge_vec(
+				"nginx_rtmp_active_streams",
+				"A metric tracking the number of active RTMP streams, labelled by application.",
+				&global_labels,
+				&["application"]
+			)?,
+            nginx_rtmp_incoming_bytes_total: Self::register_int_gauge(
+                "nginx_rtmp_incoming_bytes_total",
+                "A metric tracking the total number of incoming bytes processed.",
+				&global_labels,
+				&[]
+			)?,
+            nginx_rtmp_outgoing_bytes_total: Self::register_int_gauge(
+                "nginx_rtmp_outgoing_bytes_total",
+                "A metric tracking the total number of outgoing bytes processed.",
+				&global_labels,
+				&[]
+			)?,
+            nginx_rtmp_incoming_bandwidth: Self::register_int_gauge(
+                "nginx_rtmp_incoming_bandwidth",
+                "A metric tracking the incoming bandwidth to the server.",
+				&global_labels,
+				&[]
+			)?,
+            nginx_rtmp_outgoing_bandwidth: Self::register_int_gauge(
+                "nginx_rtmp_outgoing_bandwidth",
+                "A metric tracking the outgoing bandwidth from the server.",
+				&global_labels,
+				&[]
+			)?,
+
+            nginx_rtmp_stream_incoming_bytes_total: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_incoming_bytes_total",
+				"A metric tracking the total received bytes from a stream, labelled by stream and application.",
+				&global_labels,
+                labels
+            )?,
+            nginx_rtmp_stream_outgoing_bytes_total: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_outgoing_bytes_total",
+				"A metric tracking the total sent bytes by a given stream, labelled by stream and application.",
+                &global_labels,
+				labels
+            )?,
+            nginx_rtmp_stream_incoming_bandwidth: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_incoming_bandwidth",
+				"A metric tracking the incoming bandwidth of a given stream, labelled by stream and application.",
+                &global_labels,
+				labels
+            )?,
+            nginx_rtmp_stream_outgoing_bandwidth: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_outgoing_bandwidth",
+				"A metric tracking the outgoing bandwidth of a given stream, labelled by stream and application.",
+                &global_labels,
+				labels
+            )?,
+			nginx_rtmp_stream_bandwidth_video: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_bandwidth_video",
+				"A metric tracking the video bandwidth of a given stream, labelled by stream and application.",
+                &global_labels,
+				labels
+			)?,
+			nginx_rtmp_stream_bandwidth_audio: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_bandwidth_audio",
+				"A metric tracking the audio bandwidth of a given stream, labelled by stream and application.",
+                &global_labels,
+				labels
+			)?,
+			nginx_rtmp_stream_publisher_avsync: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_publisher_avsync",
+				"A metric tracking the A-V sync value of a given stream, labelled by stream and application.",
+				&global_labels,
+				labels
+			)?,
+			nginx_rtmp_stream_total_clients: Self::register_int_gauge_vec(
+				"nginx_rtmp_stream_total_clients",
+				"A metric tracking the number of clients connected to a given stream, labelled by stream and application.",
+				&global_labels,
+				labels
+			)?,
         })
-    });
+    }
 }

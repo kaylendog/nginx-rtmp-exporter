@@ -27,7 +27,7 @@ use warp::{
     Filter, Rejection, Reply,
 };
 
-use crate::{context::Context, meta::MetaProvider, metrics::collect_metrics};
+use crate::{context::Context, meta::MetaFile};
 
 /// Prometheus data exporter for NGINX servers running the nginx-rtmp-module.
 #[derive(Parser)]
@@ -122,14 +122,14 @@ async fn main() {
     let provider = match args.metadata {
         Some(path) => {
             let provider =
-                MetaProvider::from_file(&path, args.format).expect("Failed to load metadata");
+                MetaFile::from_path(&path, args.format).expect("Failed to load metadata");
             info!("Loaded metadata from {:?}", path);
             provider
         }
-        None => MetaProvider::default(),
+        None => MetaFile::default(),
     };
     // create threadsafe context
-    let ctx = Context::new(args.scrape_url, provider);
+    let ctx = Context::new(args.scrape_url, provider).unwrap();
     let ctx = Arc::new(Mutex::new(ctx));
     // create context filter
     let ctx = warp::any().map(move || ctx.clone());
@@ -140,7 +140,7 @@ async fn main() {
         .and(ctx)
         .then(|ctx: Arc<Mutex<Context>>| async move {
             let mut ctx = ctx.lock().await;
-            collect_metrics(&mut ctx).await;
+            ctx.collect_metrics().await;
             encode_metrics()
         })
         .map(|res: Result<(TextEncoder, String), Box<dyn Error>>| match res {
