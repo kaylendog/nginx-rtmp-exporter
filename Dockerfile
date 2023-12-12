@@ -10,10 +10,10 @@ COPY .git .git
 COPY src src
 RUN cargo build --release
 
-FROM debian:11-slim as worker
+FROM debian:12-slim as worker
 WORKDIR /app
 # install os dependencies
-RUN apt-get update && apt-get install -y libssl libssl-dev
+RUN apt-get update && apt-get install -y libssl3
 # add tini
 ENV TINI_VERSION v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
